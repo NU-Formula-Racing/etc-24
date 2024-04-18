@@ -48,6 +48,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   sensor_voltage = analogRead(19);
+  sensor_voltage = float((sensor_voltage/1023)*6.6);
   Serial.println(sensor_voltage);
   timer_group.Tick(millis());
 }
