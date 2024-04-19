@@ -21,7 +21,7 @@ CANTXMessage<1> brake_tx_g{
   general_bus, 0x010, 1, 100, timer_group, Brake_pedal};
 
 
-uint16_t sensor_voltage;
+float sensor_voltage;
 bool brake_pressed;
 bool t_active;
 
@@ -48,7 +48,7 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   sensor_voltage = analogRead(19);
-  sensor_voltage = float((sensor_voltage/1023)*6.6);
+  sensor_voltage = (sensor_voltage/1023)*6.6;
   Serial.println(sensor_voltage);
   timer_group.Tick(millis());
 }
