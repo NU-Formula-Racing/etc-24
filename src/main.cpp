@@ -1,41 +1,51 @@
 #include <Arduino.h>
 #include "teensy_can.h"
 #include "VirtualTimer.h"
-TeensyCAN<1> priority_bus{};
-// TeensyCAN<2> general_bus{};
-VirtualTimerGroup timer_group{};
-MakeSignedCANSignal(int16_t, 0, 16, 1, 0) priority_throttle_percent{};
-MakeSignedCANSignal(bool, 16, 8, 1, 0) Throttle_active{};
-MakeSignedCANSignal(bool, 0, 8, 1, 0) Brake_pedal{};
+TeensyCAN<1> p_bus{};
+TeensyCAN<2> g_bus{};
+VirtualTimerGroup p_timer_group{};
+VirtualTimerGroup g_timer_group{};
 
-CANTXMessage<1> throttle_tx_p{
-  priority_bus, 0x010, 2, 10, timer_group, priority_throttle_percent};
+// priority CAN sigs
+MakeSignedCANSignal(int16_t, 0, 16, 1, 0) p_throttle_percent{};
+MakeSignedCANSignal(bool, 16, 8, 1, 0) p_throttle_active{};
+MakeSignedCANSignal(bool, 0, 8, 1, 0) p_brake_pedal{};
 
+// general CAN sigs
+MakeSignedCANSignal(int16_t, 0, 16, 1, 0) g_throttle_percent{};
+MakeSignedCANSignal(bool, 16, 8, 1, 0) g_throttle_active{};
+MakeSignedCANSignal(bool, 0, 8, 1, 0) g_brake_pedal{};
 
-// CANTXMessage<2> throttle_tx_p{
-//   priority_bus, 0x010, 3, 100, timer_group, Throttle_percent, Throttle_active};
+// priority messages
+CANTXMessage<2> throttle_tx_p{
+  p_bus, 0x010, 3, 10, p_timer_group, p_throttle_percent, p_throttle_active};
 
-// CANTXMessage<1> brake_tx_p{
-//   priority_bus, 0x010, 1, 100, timer_group, Brake_pedal};
+CANTXMessage<1> brake_tx_p{
+  p_bus, 0x010, 1, 10, p_timer_group, p_brake_pedal};
 
-// CANTXMessage<2> throttle_tx_g{
-//   general_bus, 0x010, 2, 100, timer_group, Throttle_percent, Throttle_active};
+CANTXMessage<2> throttle_tx_g{
+  p_bus, 0x010, 3, 10, g_timer_group, g_throttle_percent, g_throttle_active};
 
-// CANTXMessage<1> brake_tx_g{
-//   general_bus, 0x010, 1, 100, timer_group, Brake_pedal};
+CANTXMessage<1> brake_tx_g{
+  p_bus, 0x010, 1, 10, g_timer_group, g_brake_pedal};
 
 
 int16_t sensor_voltage;
 bool brake_pressed;
 bool t_active;
 
-void ten_ms_task() {
-  //Throttle_percent = sensor_voltage;
-  priority_throttle_percent = 5;
-  Throttle_active = t_active;
-  Brake_pedal = brake_pressed;
-  priority_bus.Tick();
-  // Serial.println("task running!");
+void p_ten_ms_task() {
+  p_throttle_percent = 5;
+  p_throttle_active = t_active;
+  p_brake_pedal = brake_pressed;
+  p_bus.Tick();
+}
+
+void g_ten_ms_task() {
+  g_throttle_percent = 5;
+  g_throttle_active = t_active;
+  g_brake_pedal = brake_pressed;
+  g_bus.Tick();
 }
 
 void setup() {
@@ -43,11 +53,11 @@ void setup() {
   pinMode(19, INPUT);
   Serial.begin(115200);
 
-  priority_bus.Initialize(ICAN::BaudRate::kBaud1M);
-  //general_bus.Initialize(ICAN::BaudRate::kBaud1M);
-  timer_group.AddTimer(10, ten_ms_task);
-  
-  
+  p_bus.Initialize(ICAN::BaudRate::kBaud1M);
+  p_timer_group.AddTimer(10, p_ten_ms_task);
+
+  g_bus.Initialize(ICAN::BaudRate::kBaud1M);
+  g_timer_group.AddTimer(10, p_ten_ms_task);
 
 }
 
@@ -56,5 +66,6 @@ void loop() {
   // sensor_voltage = analogRead(19);
   // sensor_voltage = (sensor_voltage/1023)*6.6;
   //Serial.println(sensor_voltage);
-  timer_group.Tick(millis());
+  p_timer_group.Tick(millis());
+  g_timer_group.Tick(millis());
 }
