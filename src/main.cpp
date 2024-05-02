@@ -34,6 +34,10 @@ CANTXMessage<1> brake_tx_g{
 // utility global variables
 float sensor_voltage;
 
+unsigned long previous_millis = 0;
+const long interval = 2000;
+bool first_switch = true;
+
 // values to send over CAN
 int16_t throttle_percent;
 bool brake_pressed;
@@ -53,6 +57,8 @@ void g_ten_ms_task() {
   g_bus.Tick();
 }
 
+
+
 void setup() {
   pinMode(19, INPUT);
   Serial.begin(115200);
@@ -66,13 +72,30 @@ void setup() {
 }
 
 void loop() {
+
+  unsigned long current_millis = millis();
+  if (current_millis-previous_millis >= interval) {
+    if (first_switch) {
+      throttle_percent = 5;
+
+    } else {
+      throttle_percent = 10;
+    }
+    
+    brake_pressed = !brake_pressed;
+    t_active = !t_active;
+    previous_millis = current_millis;
+    first_switch = !first_switch;
+  }
+
   sensor_voltage = analogRead(19);
   sensor_voltage = (sensor_voltage/1023)*6.6;
-  Serial.println(sensor_voltage);
+  Serial.println(throttle_percent);
+  //Serial.println(current_millis-previous_millis);
 
-  throttle_percent = 0;
-  brake_pressed = false;
-  t_active = false;
+  // throttle_percent = 5;
+  // brake_pressed = false;
+  // t_active = false;
 
   p_timer_group.Tick(millis());
   g_timer_group.Tick(millis());
