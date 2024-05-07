@@ -1,8 +1,11 @@
 #include <Arduino.h>
 #include "teensy_can.h"
 #include "VirtualTimer.h"
+
 #define MIN_90D 80
 #define MAX_90D 720
+#define MIN_40D 80
+#define MAX_40D 720
 
 
 TeensyCAN<1> p_bus{};
@@ -35,7 +38,8 @@ CANTXMessage<1> brake_tx_g{
   p_bus, 0x011, 1, 10, g_timer_group, g_brake_pedal};
 
 // utility global variables
-float sensor_voltage;
+float sensor_voltage_90D;
+float sensor_voltage_40D;
 
 unsigned long previous_millis = 0;
 const long interval = 2000;
@@ -45,6 +49,10 @@ bool first_switch = true;
 int16_t throttle_percent;
 bool brake_pressed;
 bool t_active;
+
+// throttle percent variables for sensor testing
+int16_t throttle_percent_90D;
+int16_t throttle_percent_40D;
 
 void p_ten_ms_task() {
   p_throttle_percent = throttle_percent;
@@ -64,6 +72,7 @@ void g_ten_ms_task() {
 
 void setup() {
   pinMode(19, INPUT);
+  pinMode(18, INPUT);
   Serial.begin(115200);
 
   p_bus.Initialize(ICAN::BaudRate::kBaud1M);
@@ -91,18 +100,31 @@ void loop() {
   //   first_switch = !first_switch;
   // }
 
-  sensor_voltage = analogRead(19);
+  sensor_voltage_90D = analogRead(19);
+  sensor_voltage_40D = analogRead(18);
    // scales throttle signal to a value between zero and one based on max and min input voltages
-  double sensor_scaling = (sensor_voltage - MIN_90D)/(MAX_90D-MIN_90D);
+  double sensor_scaling_90D = (sensor_voltage_90D - MIN_90D)/(MAX_90D-MIN_90D);
+  double sensor_scaling_40D = (sensor_voltage_40D - MIN_40D)/(MAX_40D-MIN_40D);
 
-  if (sensor_scaling <= 0.0) {
-    sensor_scaling = 0.0;
-  } else if (sensor_scaling >= 1.0) {
-    sensor_scaling = 1.0;
+  if (sensor_scaling_90D <= 0.0) {
+    sensor_scaling_90D = 0.0;
+  } else if (sensor_scaling_90D >= 1.0) {
+    sensor_scaling_90D = 1.0;
   }
 
-  throttle_percent = sensor_scaling*32768;
-  Serial.println(throttle_percent);
+  if (sensor_scaling_40D <= 0.0) {
+    sensor_scaling_40D = 0.0;
+  } else if (sensor_scaling_40D >= 1.0) {
+    sensor_scaling_40D = 1.0;
+  }
+
+  // printing throttle percents, scaled from 0 to 32768
+  throttle_percent_90D = sensor_scaling_90D*32768;
+  throttle_percent_40D = sensor_scaling_40D*32768;
+  Serial.printf("90D: %d,\t40D: %d\n",throttle_percent_90D, throttle_percent_40D);
+
+  // 10% rule
+  
   //Serial.println(current_millis-previous_millis);
 
   // throttle_percent = 5;
