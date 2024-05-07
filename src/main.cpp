@@ -1,6 +1,9 @@
 #include <Arduino.h>
 #include "teensy_can.h"
 #include "VirtualTimer.h"
+#define MIN_90D 80
+#define MAX_90D 720
+
 
 TeensyCAN<1> p_bus{};
 TeensyCAN<2> g_bus{};
@@ -73,23 +76,32 @@ void setup() {
 
 void loop() {
 
-  unsigned long current_millis = millis();
-  if (current_millis-previous_millis >= interval) {
-    if (first_switch) {
-      throttle_percent = 5;
+  // unsigned long current_millis = millis();
+  // if (current_millis-previous_millis >= interval) {
+  //   if (first_switch) {
+  //     throttle_percent = 5;
 
-    } else {
-      throttle_percent = 10;
-    }
+  //   } else {
+  //     throttle_percent = 10;
+  //   }
     
-    brake_pressed = !brake_pressed;
-    t_active = !t_active;
-    previous_millis = current_millis;
-    first_switch = !first_switch;
-  }
+  //   brake_pressed = !brake_pressed;
+  //   t_active = !t_active;
+  //   previous_millis = current_millis;
+  //   first_switch = !first_switch;
+  // }
 
   sensor_voltage = analogRead(19);
-  sensor_voltage = (sensor_voltage/1023)*6.6;
+   // scales throttle signal to a value between zero and one based on max and min input voltages
+  double sensor_scaling = (sensor_voltage - MIN_90D)/(MAX_90D-MIN_90D);
+
+  if (sensor_scaling <= 0.0) {
+    sensor_scaling = 0.0;
+  } else if (sensor_scaling >= 1.0) {
+    sensor_scaling = 1.0;
+  }
+
+  throttle_percent = sensor_scaling*32768;
   Serial.println(throttle_percent);
   //Serial.println(current_millis-previous_millis);
 
