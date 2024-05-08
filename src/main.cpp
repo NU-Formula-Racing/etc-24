@@ -42,7 +42,7 @@ float sensor_voltage_90D;
 float sensor_voltage_40D;
 
 unsigned long previous_millis = 0;
-const long interval = 2000;
+const long interval = 100;
 bool first_switch = true;
 
 // values to send over CAN
@@ -85,7 +85,7 @@ void setup() {
 
 void loop() {
 
-  // unsigned long current_millis = millis();
+  unsigned long current_millis = millis();
   // if (current_millis-previous_millis >= interval) {
   //   if (first_switch) {
   //     throttle_percent = 5;
@@ -124,7 +124,16 @@ void loop() {
   Serial.printf("90D: %d,\t40D: %d\n",throttle_percent_90D, throttle_percent_40D);
 
   // 10% rule
-  
+  // if difference in sensors is >10%, set throttle_active=0
+  if (sensor_scaling_40D-sensor_scaling_90D > 0.1) {
+    if (current_millis-previous_millis >= interval) {
+      t_active = false;
+    } 
+    }
+  } else {
+    t_active = true;
+  }
+
   //Serial.println(current_millis-previous_millis);
 
   // throttle_percent = 5;
