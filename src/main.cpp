@@ -2,8 +2,8 @@
 #include "teensy_can.h"
 #include "VirtualTimer.h"
 
-#define MIN_90D 80
-#define MAX_90D 720
+#define MIN_90D 107
+#define MAX_90D 729
 #define MIN_40D 80
 #define MAX_40D 720
 
@@ -41,9 +41,10 @@ CANTXMessage<1> brake_tx_g{
 float sensor_voltage_90D;
 float sensor_voltage_40D;
 
+unsigned long current_millis = 0;
 unsigned long previous_millis = 0;
 const long interval = 100;
-bool first_switch = true;
+bool counting = false;
 
 // values to send over CAN
 int16_t throttle_percent;
@@ -84,8 +85,11 @@ void setup() {
 }
 
 void loop() {
+  t_active = true;
+  current_millis = millis();
+  
 
-  unsigned long current_millis = millis();
+  
   // if (current_millis-previous_millis >= interval) {
   //   if (first_switch) {
   //     throttle_percent = 5;
@@ -119,21 +123,28 @@ void loop() {
   }
 
   // printing throttle percents, scaled from 0 to 32768
-  throttle_percent_90D = sensor_scaling_90D*32768;
-  throttle_percent_40D = sensor_scaling_40D*32768;
+  throttle_percent_90D = sensor_scaling_90D*100;
+  throttle_percent_40D = sensor_scaling_40D*100;
+  //Serial.println(sensor_scaling_90D);
   Serial.printf("90D: %d,\t40D: %d\n",throttle_percent_90D, throttle_percent_40D);
 
-  // // 10% rule
-  // // if difference in sensors is >10%, set throttle_active=0
-  // // 100 ms rule: global with timer, if timer is >100ms, set throttle_active=0
-  // if (sensor_scaling_40D-sensor_scaling_90D > 0.1) {
-  //   if (current_millis-previous_millis >= interval) {
-  //     t_active = false;
-  //   } 
-  //   }
-  // } else {
-  //   t_active = true;
-  // }
+  // 10% rule
+  // if difference in sensors is >10%, set throttle_active=0
+  if (sensor_scaling_40D-sensor_scaling_90D > 0.1) {
+    if (!counting) {
+      previous_millis = current_millis; // start counting
+      counting = true;
+    } else {
+      if (current_millis-previous_millis >= interval) {
+        t_active = false;
+      }
+    }
+  } else {
+    counting = false;
+    t_active = true;
+  }
+  
+    
 
   //Serial.println(current_millis-previous_millis);
 
