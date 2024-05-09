@@ -123,22 +123,25 @@ void loop() {
   throttle_percent_40D = sensor_scaling_40D*32768;
   Serial.printf("90D: %d,\t40D: %d\n",throttle_percent_90D, throttle_percent_40D);
 
-  // 10% rule
-  // if difference in sensors is >10%, set throttle_active=0
-  if (sensor_scaling_40D-sensor_scaling_90D > 0.1) {
-    if (current_millis-previous_millis >= interval) {
-      t_active = false;
-    } 
-    }
-  } else {
-    t_active = true;
-  }
+  // // 10% rule
+  // // if difference in sensors is >10%, set throttle_active=0
+  // // 100 ms rule: global with timer, if timer is >100ms, set throttle_active=0
+  // if (sensor_scaling_40D-sensor_scaling_90D > 0.1) {
+  //   if (current_millis-previous_millis >= interval) {
+  //     t_active = false;
+  //   } 
+  //   }
+  // } else {
+  //   t_active = true;
+  // }
 
   //Serial.println(current_millis-previous_millis);
 
   // throttle_percent = 5;
   // brake_pressed = false;
   // t_active = false;
+
+  throttle_percent = throttle_percent_90D;
 
   p_timer_group.Tick(millis());
   g_timer_group.Tick(millis());
