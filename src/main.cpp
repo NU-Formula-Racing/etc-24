@@ -13,6 +13,7 @@
 int16_t sensor40;
 int16_t sensor40_shifted;
 int16_t sensor90;
+int16_t sensor90_shifted;
 
 TeensyCAN<1> p_bus{};
 TeensyCAN<2> g_bus{};
@@ -46,6 +47,8 @@ CANTXMessage<1> brake_tx_g{
 // utility global variables
 float sensor_voltage_90D;
 float sensor_voltage_40D;
+int16_t throttle_percent_40D;
+int16_t throttle_percent_90D;
 
 unsigned long current_millis = 0;
 unsigned long previous_millis = 0;
@@ -58,8 +61,8 @@ bool brake_pressed;
 bool t_active;
 
 // throttle percent variables for sensor testing
-int16_t throttle_percent_90D;
-int16_t throttle_percent_40D;
+float throttle_scaled_90D;
+float throttle_scaled_40D;
 
 void p_ten_ms_task() {
   p_throttle_percent = throttle_percent;
@@ -74,29 +77,6 @@ void g_ten_ms_task() {
   g_brake_pedal = brake_pressed;
   g_bus.Tick();
 }
-
-// void read_sensor_input_spi() {
-//   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE2));
-
-//   digitalWrite(SENSOR40_CS, LOW);
-//   sensor40 = SPI.transfer16(0x0000);
-//   digitalWrite(SENSOR40_CS, HIGH);
-
-//   // digitalWrite(SENSOR90_CS, LOW);
-//   // sensor90 = SPI.transfer16(0x0000);
-//   // digitalWrite(SENSOR90_CS, HIGH);
-
-//   sensor40_shifted = (sensor40 >> 2) & 0xFFF;
- 
-
-//   // sensor40 = (sensor40) >> 2;
-//   // sensor40 = sensor40 & 0xFFF;
-//   sensor_voltage_40D = (sensor40_shifted*6.6)/4096;
-//   double sensor_scaling_40D = (sensor_voltage_40D - MIN_40D)/(MAX_40D-MIN_40D);
-//   throttle_percent_40D = sensor_scaling_40D * 100;
-
-//   SPI.endTransaction();
-// }
 
 
 
@@ -134,91 +114,59 @@ void loop() {
   sensor40 = SPI.transfer16(0x0000);
   digitalWrite(SENSOR40_CS, HIGH);
 
-  // digitalWrite(SENSOR90_CS, LOW);
-  // sensor90 = SPI.transfer16(0x0000);
-  // digitalWrite(SENSOR90_CS, HIGH);
+  digitalWrite(SENSOR90_CS, LOW);
+  sensor90 = SPI.transfer16(0x0000);
+  digitalWrite(SENSOR90_CS, HIGH);
 
   sensor40_shifted = (sensor40 >> 2) & 0xFFF;
- 
+  sensor90_shifted = (sensor90 >> 2) & 0xFFF;
 
-  // sensor40 = (sensor40) >> 2;
-  // sensor40 = sensor40 & 0xFFF;
   sensor_voltage_40D = (sensor40_shifted*6.6)/4096;
+  sensor_voltage_90D = (sensor90_shifted*6.6)/4096;
 
-  
+  // throttle percent scaled from 0 to one
+  throttle_scaled_40D = (sensor40-MIN_40D)/(MAX_40D-MIN_40D);
+  throttle_scaled_90D = (sensor90-MIN_90D)/(MAX_90D-MIN_90D);
 
   SPI.endTransaction();
 
-  
-
-  sensor_voltage_40D = (sensor_voltage_40D-0.44)/(2.78-0.44)*100;
-  throttle_percent = sensor_voltage_40D;
-
   Serial.println(throttle_percent);
-  
-
-  
-  // if (current_millis-previous_millis >= interval) {
-  //   if (first_switch) {
-  //     throttle_percent = 5;
-
-  //   } else {
-  //     throttle_percent = 10;
-  //   }
-    
-  //   brake_pressed = !brake_pressed;
-  //   t_active = !t_active;
-  //   previous_millis = current_millis;
-  //   first_switch = !first_switch;
-  // }
-
-  
-  
-
-   // scales throttle signal to a value between zero and one based on max and min input voltages
-  // double sensor_scaling_90D = (sensor_voltage_90D - MIN_90D)/(MAX_90D-MIN_90D);
-  // double sensor_scaling_40D = (sensor_voltage_40D - MIN_40D)/(MAX_40D-MIN_40D);
 
 
-  // if (sensor_scaling_90D <= 0.0) {
-  //   sensor_scaling_90D = 0.0;
-  // } else if (sensor_scaling_90D >= 1.0) {
-  //   sensor_scaling_90D = 1.0;
-  // }
+  if (throttle_scaled_90D <= 0.0) {
+    throttle_scaled_90D = 0.0;
+  } else if (throttle_scaled_90D >= 1.0) {
+    throttle_scaled_90D = 1.0;
+  }
 
-  // if (sensor_scaling_40D <= 0.0) {
-  //   sensor_scaling_40D = 0.0;
-  // } else if (sensor_scaling_40D >= 1.0) {
-  //   sensor_scaling_40D = 1.0;
-  // }
+  if (throttle_scaled_40D <= 0.0) {
+    throttle_scaled_40D = 0.0;
+  } else if (throttle_scaled_40D >= 1.0) {
+    throttle_scaled_40D = 1.0;
+  }
 
-  // // printing throttle percents, scaled from 0 to 32768
-  // throttle_percent_90D = sensor_scaling_90D*100;
-  // throttle_percent_40D = sensor_scaling_40D*100;
-  // //Serial.println(sensor_scaling_90D);
-  // Serial.printf("90D: %d,\t40D: %d\n",throttle_percent_90D, throttle_percent_40D);
+  // set throttle percent throttle percents, scaled from 0 to 32767
+  throttle_percent_90D = throttle_scaled_90D*32767;
+  throttle_percent_40D = throttle_scaled_40D*32767;
+  throttle_percent = throttle_percent_40D;
 
-  // // 10% rule
-  // // if difference in sensors is >10%, set throttle_active=0
-  // if (sensor_scaling_40D-sensor_scaling_90D > 0.1) {
-  //   if (!counting) {
-  //     previous_millis = current_millis; // start counting
-  //     counting = true;
-  //   } else {
-  //     if (current_millis-previous_millis >= interval) {
-  //       t_active = false;
-  //     }
-  //   }
-  // } else {
-  //   counting = false;
-  //   t_active = true;
-  // }
-  
-    
+  Serial.printf("90D: %d,\t40D: %d\n",throttle_percent_90D, throttle_percent_40D);
 
-  // //Serial.println(current_millis-previous_millis);
-
-  // // throttle_percent = 5;
+  // 10% rule
+  // if difference in sensors is >10%, set throttle_active=0
+  if (throttle_scaled_40D-throttle_scaled_90D > 0.1 || throttle_scaled_40D-throttle_scaled_90D < -0.1) {
+    if (!counting) {
+      previous_millis = current_millis; // start counting
+      counting = true;
+    } else {
+      if (current_millis-previous_millis >= interval) {
+        t_active = false;
+      }
+    }
+  } else {
+    counting = false;
+    t_active = true;
+  }
   
   p_timer_group.Tick(millis());
   g_timer_group.Tick(millis());
