@@ -38,10 +38,10 @@ CANTXMessage<1> brake_tx_p{
 
 // general messages
 CANTXMessage<2> throttle_tx_g{
-  p_bus, 0x010, 3, 10, g_timer_group, g_throttle_percent, g_throttle_active};
+  g_bus, 0x010, 3, 10, g_timer_group, g_throttle_percent, g_throttle_active};
 
 CANTXMessage<1> brake_tx_g{
-  p_bus, 0x011, 1, 10, g_timer_group, g_brake_pedal};
+  g_bus, 0x011, 1, 10, g_timer_group, g_brake_pedal};
 
 // utility global variables
 float sensor_voltage_90D;
