@@ -5,10 +5,11 @@
 
 #define MIN_90D 107
 #define MAX_90D 729
-#define MIN_40D 285
-#define MAX_40D 1250
+#define MIN_40D 300
+#define MAX_40D 1180
 #define SENSOR40_CS 10
 #define SENSOR90_CS 5
+#define MAX_THROTTLE 100
 
 int16_t sensor40;
 int16_t sensor40_shifted;
@@ -125,33 +126,32 @@ void loop() {
   sensor_voltage_40D = (sensor40_shifted*6.6)/4096;
   sensor_voltage_90D = (sensor90_shifted*6.6)/4096;
 
-  // throttle percent scaled from 0 to one
-  throttle_scaled_40D = sensor40_shifted;//-MIN_40D)/(MAX_40D-MIN_40D);
-  throttle_scaled_90D = (sensor90_shifted-MIN_90D)/(MAX_90D-MIN_90D);
+  // throttle percent scaled from 0 to 100 for implausibility checks
+  throttle_scaled_40D = float(sensor40_shifted-MIN_40D)/(MAX_40D-MIN_40D)*100;//-MIN_40D)/(MAX_40D-MIN_40D);
+  throttle_scaled_90D = float(sensor90_shifted-MIN_90D)/(MAX_90D-MIN_90D)*100;
 
   SPI.endTransaction();
 
+  Serial.print("Sensor 40: ");
+  Serial.print(sensor40_shifted);
+  Serial.print(" Sensor 90: ");
+  Serial.print(sensor90_shifted);
+  Serial.print(" throttle_scaled_40D: ");
+  Serial.print(throttle_scaled_40D);
+  Serial.print(" Throttle Percent: ");
+  Serial.println(throttle_percent);
+
   //Serial.println(throttle_percent);
 
-
-  if (throttle_scaled_90D <= 0.0) {
-    throttle_scaled_90D = 0.0;
-  } else if (throttle_scaled_90D >= 1.0) {
-    throttle_scaled_90D = 1.0;
-  }
-
+  // set throttle percent value to send, scaled from 0 to 32767
   if (throttle_scaled_40D <= 0.0) {
-    throttle_scaled_40D = 0.0;
-  } else if (throttle_scaled_40D >= 1.0) {
-    throttle_scaled_40D = 1.0;
+    throttle_percent = 0;
+  } else if (throttle_scaled_40D >= 100.0) {
+    throttle_percent = MAX_THROTTLE;
+  } else {
+    throttle_percent = ((sensor40_shifted*MAX_THROTTLE)-MIN_40D*100)/(MAX_40D-MIN_40D);
   }
-
-  // set throttle percent throttle percents, scaled from 0 to 32767
-  throttle_percent_90D = throttle_scaled_90D*32767;
-  throttle_percent_40D = throttle_scaled_40D*100;
-  throttle_percent = ((sensor40_shifted*100)-MIN_40D*100)/(MAX_40D-MIN_40D);
-
-  Serial.println(throttle_percent);
+  
   // Serial.printf("90D: %d,\t40D: %d\n",sensor90_shifted, sensor40_shifted);
 
   // 10% rule
@@ -169,7 +169,7 @@ void loop() {
     counting = false;
     t_active = true;
   }
-  
+  t_active = true;
   p_timer_group.Tick(millis());
   g_timer_group.Tick(millis());
 }
