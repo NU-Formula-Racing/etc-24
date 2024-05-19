@@ -11,22 +11,22 @@
 #define SENSOR90_CS 5
 #define MAX_THROTTLE 100
 
+// global sensor variables
 int16_t sensor40;
-int16_t sensor40_shifted;
 int16_t sensor90;
-int16_t sensor90_shifted;
 
+// initialize CAN and timers
 TeensyCAN<1> p_bus{};
 TeensyCAN<2> g_bus{};
 VirtualTimerGroup p_timer_group{};
 VirtualTimerGroup g_timer_group{};
 
-// priority CAN sigs
+// priority CAN signals
 MakeSignedCANSignal(int16_t, 0, 16, 1, 0) p_throttle_percent{};
 MakeSignedCANSignal(bool, 16, 8, 1, 0) p_throttle_active{};
 MakeSignedCANSignal(bool, 0, 8, 1, 0) p_brake_pedal{};
 
-// general CAN sigs
+// general CAN signals
 MakeSignedCANSignal(int16_t, 0, 16, 1, 0) g_throttle_percent{};
 MakeSignedCANSignal(bool, 16, 8, 1, 0) g_throttle_active{};
 MakeSignedCANSignal(bool, 0, 8, 1, 0) g_brake_pedal{};
@@ -45,12 +45,15 @@ CANTXMessage<2> throttle_tx_g{
 CANTXMessage<1> brake_tx_g{
   g_bus, 0x011, 1, 10, g_timer_group, g_brake_pedal};
 
-// utility global variables
+// raw voltage outputs from the sensors, not used in calculations, but useful for testing
 float sensor_voltage_90D;
 float sensor_voltage_40D;
-int16_t throttle_percent_40D;
-int16_t throttle_percent_90D;
 
+// throttle percent variables for implausibility checking
+float throttle_scaled_90D;
+float throttle_scaled_40D;
+
+// variables to keep track of elapsed time for implausibilities
 unsigned long current_millis = 0;
 unsigned long previous_millis = 0;
 const long interval = 100;
@@ -60,10 +63,6 @@ bool counting = false;
 int16_t throttle_percent;
 bool brake_pressed;
 bool t_active;
-
-// throttle percent variables for sensor testing
-float throttle_scaled_90D;
-float throttle_scaled_40D;
 
 void p_ten_ms_task() {
   p_throttle_percent = throttle_percent;
@@ -79,19 +78,40 @@ void g_ten_ms_task() {
   g_bus.Tick();
 }
 
+// read raw values from ADCs over SPI, write to global variables
+void adc_read() {
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE2));
 
+  // read from 40d adc
+  digitalWrite(SENSOR40_CS, LOW);
+  int16_t adc40_raw = SPI.transfer16(0x0000);
+  digitalWrite(SENSOR40_CS, HIGH);
+
+  // read from 90d adc
+  digitalWrite(SENSOR90_CS, LOW);
+  int16_t adc90_raw = SPI.transfer16(0x0000);
+  digitalWrite(SENSOR90_CS, HIGH);
+
+  SPI.endTransaction();
+
+  // select correct bits and write to global sensor variables
+  sensor40 = (adc40_raw >> 2) & 0xFFF;
+  sensor90 = (adc90_raw >> 2) & 0xFFF;
+}
 
 void setup() {
-  pinMode(19, INPUT);
-  pinMode(18, INPUT);
+
+  // start serial monitor
   Serial.begin(115200);
 
+  // initialize CAN busses
   p_bus.Initialize(ICAN::BaudRate::kBaud1M);
   p_timer_group.AddTimer(10, p_ten_ms_task);
 
   g_bus.Initialize(ICAN::BaudRate::kBaud1M);
   g_timer_group.AddTimer(10, g_ten_ms_task);
 
+  // start SPI bus and set CS pins
   SPI.begin();
   pinMode(SENSOR40_CS, OUTPUT);
   pinMode(SENSOR90_CS, OUTPUT);
@@ -102,46 +122,23 @@ void setup() {
 }
 
 void loop() {
-  t_active = true;
+
+  // record current time
   current_millis = millis();
 
+  // TEMPORARY BRAKE SETTING, FIX THIS FOR FINAL CODE
   brake_pressed = false;
-  t_active = true;
 
-
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE2));
-
-  digitalWrite(SENSOR40_CS, LOW);
-  sensor40 = SPI.transfer16(0x0000);
-  digitalWrite(SENSOR40_CS, HIGH);
-
-  digitalWrite(SENSOR90_CS, LOW);
-  sensor90 = SPI.transfer16(0x0000);
-  digitalWrite(SENSOR90_CS, HIGH);
-
-  sensor40_shifted = (sensor40 >> 2) & 0xFFF;
-  sensor90_shifted = (sensor90 >> 2) & 0xFFF;
+  // read from ADCs and set global variables
+  adc_read();
 
   // convert sensor values to voltage -- not used in calculations
-  sensor_voltage_40D = (sensor40_shifted*6.6)/4096;
-  sensor_voltage_90D = (sensor90_shifted*6.6)/4096;
+  sensor_voltage_40D = (sensor40*6.6)/4096;
+  sensor_voltage_90D = (sensor90*6.6)/4096;
 
   // throttle percent scaled from 0 to 100 for implausibility checks
-  throttle_scaled_40D = float(sensor40_shifted-MIN_40D)/(MAX_40D-MIN_40D)*100;//-MIN_40D)/(MAX_40D-MIN_40D);
-  throttle_scaled_90D = float(sensor90_shifted-MIN_90D)/(MAX_90D-MIN_90D)*100;
-
-  SPI.endTransaction();
-
-  Serial.print("Sensor 40: ");
-  Serial.print(sensor40_shifted);
-  Serial.print(" Sensor 90: ");
-  Serial.print(sensor90_shifted);
-  Serial.print(" throttle_scaled_40D: ");
-  Serial.print(throttle_scaled_40D);
-  Serial.print(" Throttle Percent: ");
-  Serial.println(throttle_percent);
-
-  //Serial.println(throttle_percent);
+  throttle_scaled_40D = float(sensor40-MIN_40D)/(MAX_40D-MIN_40D)*100;//-MIN_40D)/(MAX_40D-MIN_40D);
+  throttle_scaled_90D = float(sensor90-MIN_90D)/(MAX_90D-MIN_90D)*100;
 
   // set throttle percent value to send, scaled from 0 to 32767
   if (throttle_scaled_40D <= 0.0) {
@@ -149,10 +146,10 @@ void loop() {
   } else if (throttle_scaled_40D >= 100.0) {
     throttle_percent = MAX_THROTTLE;
   } else {
-    throttle_percent = ((sensor40_shifted*MAX_THROTTLE)-MIN_40D*100)/(MAX_40D-MIN_40D);
+    throttle_percent = ((sensor40*MAX_THROTTLE)-MIN_40D*100)/(MAX_40D-MIN_40D);
   }
   
-  // Serial.printf("90D: %d,\t40D: %d\n",sensor90_shifted, sensor40_shifted);
+  // Serial.printf("90D: %d,\t40D: %d\n",sensor90, sensor40);
 
   // 10% rule
   // if difference in sensors is >10%, set throttle_active=0
@@ -169,7 +166,22 @@ void loop() {
     counting = false;
     t_active = true;
   }
+
+  // keep throttle active true for testing with VCU, THIS SHOULD NOT BE IN FINAL CODE
   t_active = true;
+
+  // tick CAN bus
   p_timer_group.Tick(millis());
   g_timer_group.Tick(millis());
+
+  // print sensor readings and throttle stuff
+  Serial.print("Sensor 40: ");
+  Serial.print(sensor40);
+  Serial.print(" Sensor 90: ");
+  Serial.print(sensor90);
+  Serial.print(" throttle_scaled_40D: ");
+  Serial.print(throttle_scaled_40D);
+  Serial.print(" Throttle Percent: ");
+  Serial.println(throttle_percent);
+
 }
