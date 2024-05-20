@@ -3,13 +3,13 @@
 #include "VirtualTimer.h"
 #include <SPI.h>
 
-#define MIN_90D 107
-#define MAX_90D 729
+#define MIN_90D 875
+#define MAX_90D 1270
 #define MIN_40D 300
 #define MAX_40D 1180
 #define SENSOR40_CS 10
 #define SENSOR90_CS 5
-#define MAX_THROTTLE 100
+#define MAX_THROTTLE 32767
 
 // global sensor variables
 int16_t sensor40;
@@ -146,7 +146,7 @@ void loop() {
   } else if (throttle_scaled_40D >= 100.0) {
     throttle_percent = MAX_THROTTLE;
   } else {
-    throttle_percent = ((sensor40*MAX_THROTTLE)-MIN_40D*100)/(MAX_40D-MIN_40D);
+    throttle_percent = ((sensor40*MAX_THROTTLE)-MIN_40D*MAX_THROTTLE)/(MAX_40D-MIN_40D);
   }
   
   // Serial.printf("90D: %d,\t40D: %d\n",sensor90, sensor40);
@@ -177,11 +177,13 @@ void loop() {
   // print sensor readings and throttle stuff
   Serial.print("Sensor 40: ");
   Serial.print(sensor40);
-  Serial.print(" Sensor 90: ");
+  Serial.printf("\tSensor 90: ");
   Serial.print(sensor90);
-  Serial.print(" throttle_scaled_40D: ");
+  Serial.printf("\tthrottle_scaled_40D: ");
   Serial.print(throttle_scaled_40D);
-  Serial.print(" Throttle Percent: ");
+  Serial.printf("\tthrottle_scaled_90D: ");
+  Serial.print(throttle_scaled_90D);
+  Serial.printf("\tThrottle Percent: ");
   Serial.println(throttle_percent);
 
 }
