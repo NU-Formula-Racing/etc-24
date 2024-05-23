@@ -3,10 +3,10 @@
 #include "VirtualTimer.h"
 #include <SPI.h>
 
-#define MIN_90D 875
-#define MAX_90D 1270
-#define MIN_40D 300
-#define MAX_40D 1180
+#define MIN_90D 1245
+#define MAX_90D 1735
+#define MIN_40D 365
+#define MAX_40D 1330
 #define SENSOR40_CS 10
 #define SENSOR90_CS 5
 #define MAX_THROTTLE 32767
