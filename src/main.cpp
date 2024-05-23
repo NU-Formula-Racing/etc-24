@@ -153,7 +153,7 @@ void loop() {
 
   // 10% rule
   // if difference in sensors is >10%, set throttle_active=0
-  if (throttle_scaled_40D-throttle_scaled_90D > 10.0 || throttle_scaled_40D-throttle_scaled_90D < -10.0 || ()) {
+  if (throttle_scaled_40D-throttle_scaled_90D > 10.0 || throttle_scaled_40D-throttle_scaled_90D < -10.0) {
     if (!counting) {
       previous_millis = current_millis; // start counting
       counting = true;
@@ -163,7 +163,7 @@ void loop() {
       }
     }
   } else {
-    
+
     // if difference is <10%, set throttle_active=1
     counting = false;
     t_active = true;
