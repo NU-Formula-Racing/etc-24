@@ -3,12 +3,13 @@
 #include "VirtualTimer.h"
 #include <SPI.h>
 
-#define MIN_90D 1245
-#define MAX_90D 1735
-#define MIN_40D 365
-#define MAX_40D 1330
+#define MIN_90D 1240
+#define MAX_90D 1790
+#define MIN_40D 356
+#define MAX_40D 1352
 #define SENSOR40_CS 10
 #define SENSOR90_CS 5
+#define BRAKE_PIN 19
 #define MAX_THROTTLE 32767
 
 // global sensor variables
@@ -56,7 +57,7 @@ float throttle_scaled_40D;
 // variables to keep track of elapsed time for implausibilities
 unsigned long current_millis = 0;
 unsigned long previous_millis = 0;
-const long interval = 100;
+const long interval = 0;
 bool counting = false;
 
 // values to send over CAN
@@ -118,6 +119,8 @@ void setup() {
   digitalWrite(SENSOR40_CS, HIGH);
   digitalWrite(SENSOR90_CS, HIGH); // Set both CS pins to HIGH initially
 
+  // set brake pin as input
+  pinMode(BRAKE_PIN, INPUT);
 
 }
 
@@ -125,9 +128,6 @@ void loop() {
 
   // record current time
   current_millis = millis();
-
-  // TEMPORARY BRAKE SETTING, FIX THIS FOR FINAL CODE
-  brake_pressed = false;
 
   // read from ADCs and set global variables
   adc_read();
@@ -148,12 +148,12 @@ void loop() {
   } else {
     throttle_percent = ((sensor40*MAX_THROTTLE)-MIN_40D*MAX_THROTTLE)/(MAX_40D-MIN_40D);
   }
-  
-  // Serial.printf("90D: %d,\t40D: %d\n",sensor90, sensor40);
+  // set brake pressed value
+  brake_pressed = digitalRead(BRAKE_PIN);
 
   // 10% rule
   // if difference in sensors is >10%, set throttle_active=0
-  if (throttle_scaled_40D-throttle_scaled_90D > 0.1 || throttle_scaled_40D-throttle_scaled_90D < -0.1) {
+  if (throttle_scaled_40D-throttle_scaled_90D > 10.0 || throttle_scaled_40D-throttle_scaled_90D < -10.0 || ()) {
     if (!counting) {
       previous_millis = current_millis; // start counting
       counting = true;
@@ -163,27 +163,36 @@ void loop() {
       }
     }
   } else {
+    
+    // if difference is <10%, set throttle_active=1
     counting = false;
     t_active = true;
   }
 
   // keep throttle active true for testing with VCU, THIS SHOULD NOT BE IN FINAL CODE
-  t_active = true;
+  //t_active = true;
 
   // tick CAN bus
   p_timer_group.Tick(millis());
   g_timer_group.Tick(millis());
 
   // print sensor readings and throttle stuff
-  Serial.print("Sensor 40: ");
+  Serial.print("adc 40: ");
   Serial.print(sensor40);
-  Serial.printf("\tSensor 90: ");
+  Serial.printf("\tadc 90: ");
   Serial.print(sensor90);
-  Serial.printf("\tthrottle_scaled_40D: ");
+  Serial.printf("\tt_40D: ");
   Serial.print(throttle_scaled_40D);
-  Serial.printf("\tthrottle_scaled_90D: ");
+  Serial.printf("\tt_90D: ");
   Serial.print(throttle_scaled_90D);
-  Serial.printf("\tThrottle Percent: ");
-  Serial.println(throttle_percent);
+  Serial.printf("\tt_active: ");
+  Serial.print(t_active);
+  Serial.printf("\tdiff: ");
+  Serial.print(throttle_scaled_40D-throttle_scaled_90D);
+  Serial.printf("\tt_percent: ");
+  Serial.print(throttle_percent);
+  Serial.printf("\tbrake: ");
+  Serial.println(brake_pressed);
+  delay(100);
 
 }
