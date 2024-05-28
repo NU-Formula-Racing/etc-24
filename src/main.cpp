@@ -58,8 +58,13 @@ float throttle_scaled_40D;
 // variables to keep track of elapsed time for implausibilities
 unsigned long current_millis = 0;
 unsigned long previous_millis = 0;
-const long interval = 0;
+const long interval = 100;
 bool counting = false;
+
+// brake implausibility variables
+bool counting_brake = false;
+unsigned long previous_millis_brake = 0;
+unsigned long interval_brake = 100;
 
 // brake valid
 bool brake_valid;
@@ -175,16 +180,29 @@ void loop() {
     }
     // if brake is pressed while throttle is >25% -> set t_active=0, wait until throttle is 5% before changing t_active back to 1
   } else if (brake_pressed && throttle_scaled_40D > 25.0) {
-      t_active = false;
-      brake_implausible_25 = true;
+      if (!counting_brake) {
+        previous_millis_brake = current_millis; // start counting
+        counting_brake = true;
+      } else {
+        if (current_millis-previous_millis_brake >= interval_brake) {
+          t_active = false;
+          brake_implausible_25 = true;
+        }
+      }
+      
+  // if throttle is <5% -> set t_active=1
   } else if (brake_implausible_25 && throttle_scaled_40D < 5.0) {
       t_active = true;
       brake_implausible_25 = false;
-  } 
+
+  } else if (brake_implausible_25) {
+      t_active = false;
+  }
   // no implausibility!!!!!
   else {
     // if difference is <10%, set t_active=1
     counting = false;
+    counting_brake = false;
     t_active = true;
   }
 
@@ -196,24 +214,27 @@ void loop() {
   g_timer_group.Tick(millis());
 
   // print sensor readings and throttle stuff
-  Serial.print("adc 40: ");
-  Serial.print(sensor40);
-  Serial.printf("\tadc 90: ");
-  Serial.print(sensor90);
-  Serial.printf("\tt_40D: ");
-  Serial.print(throttle_scaled_40D);
-  Serial.printf("\tt_90D: ");
-  Serial.print(throttle_scaled_90D);
-  Serial.printf("\tt_active: ");
-  Serial.print(t_active);
-  Serial.printf("\tdiff: ");
-  Serial.print(throttle_scaled_40D-throttle_scaled_90D);
-  Serial.printf("\tt_percent: ");
-  Serial.print(throttle_percent);
-  Serial.printf("\tbrake: ");
-  Serial.print(brake_pressed);
-  Serial.printf("\tbrake_valid: ");
-  Serial.println(brake_valid);
+  // Serial.print("adc40: ");
+  // Serial.print(sensor40);
+  // Serial.printf("\tadc90: ");
+  // Serial.print(sensor90);
+  // Serial.printf("\tt40: ");
+  // Serial.print(throttle_scaled_40D);
+  // Serial.printf("\tt90: ");
+  // Serial.print(throttle_scaled_90D);
+  // Serial.printf("\tt_active: ");
+  // Serial.print(t_active);
+  // Serial.printf("\tdiff: ");
+  // Serial.print(throttle_scaled_40D-throttle_scaled_90D);
+  // Serial.printf("\tt_perc: ");
+  // Serial.print(throttle_percent);
+  // Serial.printf("\tbrake: ");
+  // Serial.print(brake_pressed);
+  // Serial.printf("\tb_val: ");
+  // Serial.println(brake_valid);
+  Serial.print(sensor90, BIN);
+  Serial.print("\t");
+  Serial.println(sensor90);
   delay(100);
 
 }
