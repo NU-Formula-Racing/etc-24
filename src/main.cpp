@@ -10,6 +10,7 @@
 #define SENSOR40_CS 10
 #define SENSOR90_CS 5
 #define BRAKE_PIN 19
+#define BRAKE_VALID_PIN 6
 #define MAX_THROTTLE 32767
 
 // global sensor variables
@@ -60,10 +61,18 @@ unsigned long previous_millis = 0;
 const long interval = 0;
 bool counting = false;
 
+// brake valid
+bool brake_valid;
+
+// brake implausibility global
+bool brake_implausible_25;
+
 // values to send over CAN
 int16_t throttle_percent;
 bool brake_pressed;
 bool t_active;
+
+
 
 void p_ten_ms_task() {
   p_throttle_percent = throttle_percent;
@@ -119,8 +128,9 @@ void setup() {
   digitalWrite(SENSOR40_CS, HIGH);
   digitalWrite(SENSOR90_CS, HIGH); // Set both CS pins to HIGH initially
 
-  // set brake pin as input
+  // set brake pin and brake valid pin as input
   pinMode(BRAKE_PIN, INPUT);
+  pinMode(BRAKE_VALID_PIN, INPUT);
 
 }
 
@@ -150,10 +160,11 @@ void loop() {
   }
   // set brake pressed value
   brake_pressed = digitalRead(BRAKE_PIN);
+  brake_valid = digitalRead(BRAKE_VALID_PIN);
 
   // 10% rule
   // if difference in sensors is >10%, set throttle_active=0
-  if (throttle_scaled_40D-throttle_scaled_90D > 10.0 || throttle_scaled_40D-throttle_scaled_90D < -10.0) {
+  if (throttle_scaled_40D-throttle_scaled_90D > 10.0 || throttle_scaled_40D-throttle_scaled_90D < -10.0 || !brake_valid) {
     if (!counting) {
       previous_millis = current_millis; // start counting
       counting = true;
@@ -162,9 +173,17 @@ void loop() {
         t_active = false;
       }
     }
-  } else {
-
-    // if difference is <10%, set throttle_active=1
+    // if brake is pressed while throttle is >25% -> set t_active=0, wait until throttle is 5% before changing t_active back to 1
+  } else if (brake_pressed && throttle_scaled_40D > 25.0) {
+      t_active = false;
+      brake_implausible_25 = true;
+  } else if (brake_implausible_25 && throttle_scaled_40D < 5.0) {
+      t_active = true;
+      brake_implausible_25 = false;
+  } 
+  // no implausibility!!!!!
+  else {
+    // if difference is <10%, set t_active=1
     counting = false;
     t_active = true;
   }
@@ -192,7 +211,9 @@ void loop() {
   Serial.printf("\tt_percent: ");
   Serial.print(throttle_percent);
   Serial.printf("\tbrake: ");
-  Serial.println(brake_pressed);
+  Serial.print(brake_pressed);
+  Serial.printf("\tbrake_valid: ");
+  Serial.println(brake_valid);
   delay(100);
 
 }
