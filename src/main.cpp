@@ -110,8 +110,8 @@ void adc_read() {
   SPI.endTransaction();
 
   // select correct bits and write to global sensor variables
-  sensor40 = (adc40_raw >> 2) & 0xFFF;
-  sensor90 = (adc90_raw >> 2) & 0xFFF;
+  sensor40 = int16_t(adc40_raw << 2) >> 4;
+  sensor90 = int16_t(adc90_raw << 2) >> 4;
 }
 
 void setup() {
@@ -214,27 +214,27 @@ void loop() {
   g_timer_group.Tick(millis());
 
   // print sensor readings and throttle stuff
-  // Serial.print("adc40: ");
-  // Serial.print(sensor40);
-  // Serial.printf("\tadc90: ");
-  // Serial.print(sensor90);
-  // Serial.printf("\tt40: ");
-  // Serial.print(throttle_scaled_40D);
-  // Serial.printf("\tt90: ");
-  // Serial.print(throttle_scaled_90D);
-  // Serial.printf("\tt_active: ");
-  // Serial.print(t_active);
-  // Serial.printf("\tdiff: ");
-  // Serial.print(throttle_scaled_40D-throttle_scaled_90D);
-  // Serial.printf("\tt_perc: ");
-  // Serial.print(throttle_percent);
-  // Serial.printf("\tbrake: ");
-  // Serial.print(brake_pressed);
-  // Serial.printf("\tb_val: ");
-  // Serial.println(brake_valid);
-  Serial.print(sensor90, BIN);
-  Serial.print("\t");
-  Serial.println(sensor90);
+  Serial.print("adc40: ");
+  Serial.print(sensor40);
+  Serial.printf("\tadc90: ");
+  Serial.print(sensor90);
+  Serial.printf("\tt40: ");
+  Serial.print(throttle_scaled_40D);
+  Serial.printf("\tt90: ");
+  Serial.print(throttle_scaled_90D);
+  Serial.printf("\tt_active: ");
+  Serial.print(t_active);
+  Serial.printf("\tdiff: ");
+  Serial.print(throttle_scaled_40D-throttle_scaled_90D);
+  Serial.printf("\tt_perc: ");
+  Serial.print(throttle_percent);
+  Serial.printf("\tbrake: ");
+  Serial.print(brake_pressed);
+  Serial.printf("\tb_val: ");
+  Serial.println(brake_valid);
+  // Serial.print(sensor90, BIN);
+  // Serial.print("\t");
+  // Serial.println(sensor90);
   delay(100);
 
 }
