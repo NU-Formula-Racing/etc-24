@@ -26,26 +26,20 @@ VirtualTimerGroup g_timer_group{};
 // priority CAN signals
 MakeSignedCANSignal(int16_t, 0, 16, 1, 0) p_throttle_percent{};
 MakeSignedCANSignal(bool, 16, 8, 1, 0) p_throttle_active{};
-MakeSignedCANSignal(bool, 0, 8, 1, 0) p_brake_pedal{};
+MakeSignedCANSignal(bool, 24, 8, 1, 0) p_brake_pedal{};
 
 // general CAN signals
 MakeSignedCANSignal(int16_t, 0, 16, 1, 0) g_throttle_percent{};
 MakeSignedCANSignal(bool, 16, 8, 1, 0) g_throttle_active{};
-MakeSignedCANSignal(bool, 0, 8, 1, 0) g_brake_pedal{};
+MakeSignedCANSignal(bool, 24, 8, 1, 0) g_brake_pedal{};
 
 // priority messages
-CANTXMessage<2> throttle_tx_p{
-  p_bus, 0x010, 3, 10, p_timer_group, p_throttle_percent, p_throttle_active};
-
-CANTXMessage<1> brake_tx_p{
-  p_bus, 0x011, 1, 10, p_timer_group, p_brake_pedal};
+CANTXMessage<3> throttle_tx_p{
+  p_bus, 0x010, 4, 10, p_timer_group, p_throttle_percent, p_throttle_active, p_brake_pedal};
 
 // general messages
-CANTXMessage<2> throttle_tx_g{
-  g_bus, 0x010, 3, 10, g_timer_group, g_throttle_percent, g_throttle_active};
-
-CANTXMessage<1> brake_tx_g{
-  g_bus, 0x011, 1, 10, g_timer_group, g_brake_pedal};
+CANTXMessage<3> throttle_tx_g{
+  g_bus, 0x010, 4, 10, g_timer_group, g_throttle_percent, g_throttle_active, g_brake_pedal};
 
 // raw voltage outputs from the sensors, not used in calculations, but useful for testing
 float sensor_voltage_90D;
