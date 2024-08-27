@@ -3,9 +3,9 @@
 #include "VirtualTimer.h"
 #include <SPI.h>
 
-#define MIN_90D 1240
-#define MAX_90D 1790
-#define MIN_40D 356
+#define MIN_90D 1500
+#define MAX_90D 1785
+#define MIN_40D 2055
 #define MAX_40D 1352
 #define SENSOR40_CS 10
 #define SENSOR90_CS 5
@@ -18,8 +18,8 @@ int16_t sensor40;
 int16_t sensor90;
 
 // initialize CAN and timers
-TeensyCAN<1> p_bus{};
-TeensyCAN<2> g_bus{};
+TeensyCAN<2> p_bus{};
+TeensyCAN<1> g_bus{};
 VirtualTimerGroup p_timer_group{};
 VirtualTimerGroup g_timer_group{};
 
@@ -33,6 +33,10 @@ MakeSignedCANSignal(int16_t, 0, 16, 1, 0) g_throttle_percent{};
 MakeSignedCANSignal(bool, 16, 8, 1, 0) g_throttle_active{};
 MakeSignedCANSignal(bool, 24, 8, 1, 0) g_brake_pedal{};
 
+// Debug signals - comp pedal bounds
+MakeSignedCANSignal(int16_t, 0, 16, 1, 0) g_adc_signal_90{};
+MakeSignedCANSignal(int16_t, 16, 16, 1, 0) g_adc_signal_40{};
+
 // priority messages
 CANTXMessage<3> throttle_tx_p{
   p_bus, 0x010, 4, 10, p_timer_group, p_throttle_percent, p_throttle_active, p_brake_pedal};
@@ -40,6 +44,10 @@ CANTXMessage<3> throttle_tx_p{
 // general messages
 CANTXMessage<3> throttle_tx_g{
   g_bus, 0x010, 4, 10, g_timer_group, g_throttle_percent, g_throttle_active, g_brake_pedal};
+
+CANTXMessage<2> debug_tx_g {
+  p_bus, 0x11, 4, 10, p_timer_group, g_adc_signal_90, g_adc_signal_40
+};
 
 // raw voltage outputs from the sensors, not used in calculations, but useful for testing
 float sensor_voltage_90D;
@@ -77,6 +85,8 @@ void p_ten_ms_task() {
   p_throttle_percent = throttle_percent;
   p_throttle_active = t_active;
   p_brake_pedal = brake_pressed;
+  g_adc_signal_90 = sensor90;
+  g_adc_signal_40 = sensor40;
   p_bus.Tick();
 }
 
@@ -150,12 +160,12 @@ void loop() {
   throttle_scaled_90D = float(sensor90-MIN_90D)/(MAX_90D-MIN_90D)*100;
 
   // set throttle percent value to send, scaled from 0 to 32767
-  if (throttle_scaled_40D <= 0.0) {
+  if (throttle_scaled_90D <= 0.0) {
     throttle_percent = 0;
-  } else if (throttle_scaled_40D >= 100.0) {
+  } else if (throttle_scaled_90D >= 100.0) {
     throttle_percent = MAX_THROTTLE;
   } else {
-    throttle_percent = ((sensor40*MAX_THROTTLE)-MIN_40D*MAX_THROTTLE)/(MAX_40D-MIN_40D);
+    throttle_percent = ((sensor90*MAX_THROTTLE)-MIN_90D*MAX_THROTTLE)/(MAX_90D-MIN_90D);
   }
   // set brake pressed value
   brake_pressed = digitalRead(BRAKE_PIN);
@@ -201,7 +211,7 @@ void loop() {
   }
 
   // keep throttle active true for testing with VCU, THIS SHOULD NOT BE IN FINAL CODE
-  //t_active = true;
+  t_active = true;
 
   // tick CAN bus
   p_timer_group.Tick(millis());
