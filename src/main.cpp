@@ -171,9 +171,9 @@ void loop() {
   brake_pressed = digitalRead(BRAKE_PIN);
   brake_valid = digitalRead(BRAKE_VALID_PIN);
 
-  // 10% rule
+  // 10% rule -- not including this in NFR24 first drive code due to 40deg sensor being out of bounds
   // if difference in sensors is >10%, set throttle_active=0
-  if (throttle_scaled_40D-throttle_scaled_90D > 10.0 || throttle_scaled_40D-throttle_scaled_90D < -10.0 || !brake_valid) {
+  if (throttle_scaled_90D-throttle_scaled_90D > 10.0 || throttle_scaled_90D-throttle_scaled_90D < -10.0 || !brake_valid) {
     if (!counting) {
       previous_millis = current_millis; // start counting
       counting = true;
@@ -183,7 +183,7 @@ void loop() {
       }
     }
     // if brake is pressed while throttle is >25% -> set t_active=0, wait until throttle is 5% before changing t_active back to 1
-  } else if (brake_pressed && throttle_scaled_40D > 25.0) {
+  } else if (brake_pressed && throttle_scaled_90D > 25.0) {
       if (!counting_brake) {
         previous_millis_brake = current_millis; // start counting
         counting_brake = true;
@@ -195,7 +195,7 @@ void loop() {
       }
       
   // if throttle is <5% -> set t_active=1
-  } else if (brake_implausible_25 && throttle_scaled_40D < 5.0) {
+  } else if (brake_implausible_25 && throttle_scaled_90D < 5.0) {
       t_active = true;
       brake_implausible_25 = false;
 
@@ -211,7 +211,7 @@ void loop() {
   }
 
   // keep throttle active true for testing with VCU, THIS SHOULD NOT BE IN FINAL CODE
-  t_active = true;
+  // t_active = true;
 
   // tick CAN bus
   p_timer_group.Tick(millis());
